@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEVA Polling System</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin: auto;
+        }
+
+        input[type="text"] {
+            width: 95%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background-color: #218838;
+        }
+
+        .poll {
+            background: white;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            text-align: left;
+        }
+
+        .poll h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .vote-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 5px 0;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .vote-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .results-btn {
+            background-color: #ffc107;
+            color: #333;
+            border: none;
+            padding: 8px 12px;
+            margin: 5px 5px 0 0;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .results {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🗳 SEVA Polling System</h1>
+
+    <div class="container">
+        <h3>Create a Poll</h3>
+        <input type="text" id="question" placeholder="Enter poll question">
+        <input type="text" id="option1" placeholder="Option 1">
+        <input type="text" id="option2" placeholder="Option 2">
+        <button class="btn" onclick="createPoll()">Create Poll</button>
+
+        <h3>Available Polls</h3>
+        <div id="polls"></div>
+    </div>
+
+    <script>
+        async function fetchPolls() {
+            try {
+                const response = await fetch("http://localhost:5000/polls");
+                const data = await response.json();
+                const pollsContainer = document.getElementById("polls");
+                pollsContainer.innerHTML = "";
+
+                data.forEach(poll => {
+                    let pollElement = document.createElement("div");
+                    pollElement.classList.add("poll");
+
+                    pollElement.innerHTML = `<h4>${poll.question}</h4>`;
+
+                    poll.options.forEach((option, index) => {
+                        pollElement.innerHTML += `
+                            <button class="vote-btn" onclick="vote(${poll.id}, ${index})">
+                                ${option.text} - ${option.votes} votes
+                            </button><br>`;
+                    });
+
+                    pollElement.innerHTML += `
+                        <button class="results-btn" onclick="toggleResults(${poll.id})">Show Results</button>
+                        <button class="delete-btn" onclick="deletePoll(${poll.id})">Delete Poll</button>
+                        <div id="results-${poll.id}" class="results">
+                            ${poll.options.map(option => `<p>${option.text}: ${option.votes} votes</p>`).join('')}
+                        </div>`;
+
+                    pollsContainer.appendChild(pollElement);
+                });
+            } catch (error) {
+                console.error("Error fetching polls:", error);
+            }
+        }
+
+        async function createPoll() {
+            const question = document.getElementById("question").value.trim();
+            const option1 = document.getElementById("option1").value.trim();
+            const option2 = document.getElementById("option2").value.trim();
+
+            if (!question || !option1 || !option2) {
+                alert("Please fill all fields before creating a poll.");
+                return;
+            }
+
+            try {
+                const response = await fetch("http://localhost:5000/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question, options: [option1, option2] }),
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("Error creating poll:", errorText);
+                    return;
+                }
+
+                console.log("Poll created successfully!");
+                fetchPolls();
+            } catch (error) {
+                console.error("Network error:", error);
+            }
+        }
+
+        async function vote(pollId, optionIndex) {
+            try {
+                const response = await fetch("http://localhost:5000/vote", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pollId, optionIndex }),
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("Error voting:", errorText);
+                    return;
+                }
+
+                console.log("Vote recorded!");
+                fetchPolls();
+            } catch (error) {
+                console.error("Network error:", error);
+            }
+        }
+
+        async function deletePoll(pollId) {
+    try {
+        const response = await fetch(`http://localhost:5000/delete/${pollId}`, {
+            method: "DELETE",
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Error deleting poll:", errorText);
+            return;
+        }
+
+        console.log("Poll deleted successfully!");
+        fetchPolls(); // Refresh the polls after deletion
+    } catch (error) {
+        console.error("Network error:", error);
+    }
+}
+
+
+        function toggleResults(pollId) {
+            const resultsDiv = document.getElementById(`results-${pollId}`);
+            if (resultsDiv.style.display === "none" || resultsDiv.style.display === "") {
+                resultsDiv.style.display = "block";
+            } else {
+                resultsDiv.style.display = "none";
+            }
+        }
+
+        fetchPolls();
+    </script>
+
+</body>
+</html>
